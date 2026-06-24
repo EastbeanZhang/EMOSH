@@ -24,13 +24,13 @@
 
 ## Overview
 
-![Teaser](emote-animate%20图/teaser/teaser.png)
+![Teaser](assets/Docs/teaser.svg)
 
 Given a reference image and a driving video, EMOSH achieves high-fidelity, mesh-guided expressive human animation while disentangling expressive motion from body shape to prevent shape leakage.
 
 ## Method
 
-![Pipeline](emote-animate%20图/pipeline/pipeline/pipeline.png)
+![Pipeline](assets/Docs/pipeline.svg)
 
 First, the motion tracker extracts motion and camera parameters from the driving video and shape parameters from the reference image, achieving motion-shape disentanglement via EHM retargeting. The retargeted model is then rendered into hybrid control signals through semantic color shading and keypoint drawing, and encoded into motion latents. During generation, the reference latent and noisy latent are concatenated; for subsequent video chunks, the spatially-aligned and temporal latents are additionally activated. The motion latents are injected into the main sequence via addition and fed into the DiT network for denoising, and are finally decoded into the output video.
 
