@@ -8,7 +8,7 @@
 
 <sup>\*</sup> Intern &nbsp; | &nbsp; <sup>†</sup> Corresponding Authors
 
-**ECCV 2026**
+## **ECCV 2026**
 
 [![Project Page](https://img.shields.io/badge/Project-Page-EC4899?style=for-the-badge)](https://eastbeanzhang.github.io/EMOSH/)
 [![arXiv](https://img.shields.io/badge/arXiv-Paper-B31B1B?style=for-the-badge)](https://arxiv.org/abs/xxxx.xxxxx)
