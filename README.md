@@ -1,3 +1,5 @@
+<div align="center">
+
 # EMOSH: Expressive Motion and Shape Disentanglement for Human Animation
 
 **Dongbin Zhang**<sup>1,2\*</sup>, **Hao Liu**<sup>2</sup>, **Binquan Dai**<sup>1</sup>, **Kangjie Chen**<sup>1</sup>, **Chuming Wang**<sup>1</sup>, **Chen Li**<sup>2†</sup>, **Jing LYU**<sup>2</sup>, **Haoqian Wang**<sup>1†</sup>
@@ -8,11 +10,11 @@
 
 **ECCV 2026**
 
----
-
 [![Project Page](https://img.shields.io/badge/Project-Page-EC4899?style=for-the-badge)](https://eastbeanzhang.github.io/EMOSH/)
 [![arXiv](https://img.shields.io/badge/arXiv-Paper-B31B1B?style=for-the-badge)](https://arxiv.org/abs/xxxx.xxxxx)
 [![YouTube](https://img.shields.io/badge/YouTube-Demo-FF0000?style=for-the-badge)](https://youtu.be/xxxxxxxxxxx)
+
+</div>
 
 ---
 
