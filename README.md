@@ -11,7 +11,7 @@
 ## **ECCV 2026**
 
 [![Project Page](https://img.shields.io/badge/Project-Page-EC4899?style=for-the-badge)](https://eastbeanzhang.github.io/EMOSH/)
-[![arXiv](https://img.shields.io/badge/arXiv-Paper-B31B1B?style=for-the-badge)](https://arxiv.org/abs/xxxx.xxxxx)
+[![arXiv](https://img.shields.io/badge/arXiv-Paper-B31B1B?style=for-the-badge)](https://arxiv.org/abs/2606.28026)
 [![YouTube](https://img.shields.io/badge/YouTube-Demo-FF0000?style=for-the-badge)](https://www.youtube.com/watch?v=Sr9oZLtng-s)
 
 </div>
