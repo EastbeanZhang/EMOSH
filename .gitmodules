@@ -1,0 +1,4 @@
+[submodule "EMOSH-Tracker"]
+	path = EMOSH-Tracker
+	url = https://github.com/EastbeanZhang/EMOSH-Tracker.git
+	branch = main

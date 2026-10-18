@@ -13,6 +13,7 @@
 [![Project Page](https://img.shields.io/badge/Project-Page-EC4899?style=for-the-badge)](https://eastbeanzhang.github.io/EMOSH/)
 [![arXiv](https://img.shields.io/badge/arXiv-Paper-B31B1B?style=for-the-badge)](https://arxiv.org/abs/2606.28026)
 [![YouTube](https://img.shields.io/badge/YouTube-Demo-FF0000?style=for-the-badge)](https://www.youtube.com/watch?v=Sr9oZLtng-s)
+[![Tracker](https://img.shields.io/badge/Tracker-Code-181717?style=for-the-badge&logo=github)](https://github.com/EastbeanZhang/EMOSH-Tracker)
 
 </div>
 
@@ -21,6 +22,16 @@
 ## Introduction
 
 **EMOSH** is a novel framework for high-fidelity controllable human video generation. Given a reference image and a driving video, EMOSH achieves expressive, mesh-guided human animation while explicitly disentangling expressive motion from body shape — preventing shape leakage from the driving subject.
+
+## Motion Tracker
+
+[EMOSH-Tracker](https://github.com/EastbeanZhang/EMOSH-Tracker) recovers expressive body, hand, face, and camera parameters from full-body, upper-body, and portrait images or videos. See its [README](https://github.com/EastbeanZhang/EMOSH-Tracker#readme) for installation, model downloads, and examples.
+
+The `EMOSH-Tracker/` submodule links to the standalone tracker repository. To check it out after cloning this repository:
+
+```bash
+git submodule update --init EMOSH-Tracker
+```
 
 ## Overview
 
