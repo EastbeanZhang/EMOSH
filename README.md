@@ -47,7 +47,7 @@ Use [EMOSH-Tracker](https://github.com/EastbeanZhang/EMOSH-Tracker) to fit your 
 
 ```bash
 python prepare_dataset.py --tracking /path/to/tracker/result \
-  --output data/train --id clip_0001 --prompt 'A person moving.'
+  --output data/train --id clip_0001
 ```
 
 [Tracking and dataset format](docs/data.md)

@@ -19,10 +19,12 @@ Activate the EMOSH training environment and run from the EMOSH repository:
 
 ```bash
 python prepare_dataset.py --tracking /path/to/tracker/results/video \
-  --output data/train --id clip_0001 --prompt 'A person moving.'
+  --output data/train --id clip_0001
 python prepare_dataset.py --tracking /path/to/another/tracker/result \
-  --output data/train --id clip_0002 --prompt 'A person speaking.'
+  --output data/train --id clip_0002
 ```
+
+The default prompt is `A person moving.`; use `--prompt` only to provide a custom description.
 
 The converter stores paths relative to the dataset root:
 
