@@ -71,7 +71,7 @@ python infer.py --dataset data/train --reference clip_0001 --driving clip_0002 \
   --output outputs/animation.mp4 --num-frames 77 --steps 20 --fps 30
 ```
 
-The reference record supplies identity and shape; the driving record supplies motion and camera. [GPU test scope and measurements](docs/testing.md)
+The reference record supplies identity and shape; the driving record supplies motion and camera.
 
 ## Motion Tracker
 
