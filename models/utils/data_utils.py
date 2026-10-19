@@ -1,7 +1,7 @@
-import json
 import os
 import random
 import time
+from collections import OrderedDict
 from copy import deepcopy
 
 import numpy as np
@@ -9,6 +9,7 @@ import torch
 import torchvision
 from torchvision.transforms.functional import InterpolationMode, resize
 
+from .dataset_index import DatasetIndex
 from .general_utils import (
     resize_and_pad_images,
     squeeze_tensor_recursive,
@@ -38,6 +39,7 @@ class Tracked_VideoDataset(torch.utils.data.Dataset):
         repeat=1,
         args=None,
         resolution_area=None,
+        cache_size=8,
     ):
         if args is not None:
             base_path = args.dataset_base_path
@@ -48,9 +50,13 @@ class Tracked_VideoDataset(torch.utils.data.Dataset):
             repeat = args.dataset_repeat
         self.split = split
         assert self.split in ["train", "valid", "test"], f"Invalid split: {self.split}"
-        self.tracked_data = {}
+        if not isinstance(cache_size, int) or isinstance(cache_size, bool) or cache_size < 1:
+            raise ValueError("cache_size must be a positive integer")
+        self.cache_size = cache_size
+        self._cache_pid = os.getpid()
+        self.tracked_data = OrderedDict()
         self.tracked_data_id_share = {}
-        self.lmdb_engines = {}
+        self.lmdb_engines = OrderedDict()
         self.videos_promt = {}
 
         self.base_path = base_path
@@ -74,22 +80,11 @@ class Tracked_VideoDataset(torch.utils.data.Dataset):
 
         self.dynamic_resolution = self.fixed_size is None
 
-        try:
-            with open(os.path.join(self.base_path, "videos_info.json"), "r") as f:
-                self.videos_info = json.load(f)
-        except Exception as e:
-            raise RuntimeError(f"Failed to load videos_info.json from {self.base_path}: {e}")
-
-        if self.split in ["train", "valid"]:
-            with open(os.path.join(self.base_path, "videos_split.json"), "r") as f:
-                self.videos_ids = json.load(f)[self.split]
-        else:
-            self.videos_ids = list(self.videos_info.keys())
+        self.videos_info = DatasetIndex(self.base_path, cache_size=cache_size)
+        self.videos_ids = list(self.videos_info.iter_ids(self.split))
         if not self.videos_ids:
             raise ValueError(f"No videos in {self.split} split")
-        self.frames_num = 0
-        for video_id in self.videos_ids:
-            self.frames_num += self.videos_info[video_id]["frames_number"]
+        _, self.frames_num, self.minimum_frames = self.videos_info.summary(self.split)
 
     def __getitem__(self, data_id):
         data_id = data_id % (len(self.videos_ids))
@@ -112,11 +107,15 @@ class Tracked_VideoDataset(torch.utils.data.Dataset):
         self.videos_ids = self.videos_ids[:slice_num]
 
     def _get_lmdb_engine(self, video_id):
-        if video_id not in self.lmdb_engines:
-            video_dir = self._get_video_dir(video_id)
-            lmdb_path = os.path.join(video_dir, "image_lmdb")
-            self.lmdb_engines[video_id] = LMDBEngine(lmdb_path, write=False)
-        return self.lmdb_engines[video_id]
+        self._ensure_process()
+        lmdb_path = os.path.abspath(os.path.join(self._get_video_dir(video_id), "image_lmdb"))
+        if lmdb_path not in self.lmdb_engines:
+            if len(self.lmdb_engines) >= self.cache_size:
+                _, engine = self.lmdb_engines.popitem(last=False)
+                engine.close()
+            self.lmdb_engines[lmdb_path] = LMDBEngine(lmdb_path, write=False)
+        self.lmdb_engines.move_to_end(lmdb_path)
+        return self.lmdb_engines[lmdb_path]
 
     def crop_and_resize(self, image, target_height, target_width):
         width, height = image.shape[-1], image.shape[-2]
@@ -267,20 +266,28 @@ class Tracked_VideoDataset(torch.utils.data.Dataset):
         return tracking_info, _image, _mask
 
     def _load_tracked_file(self, video_id):
+        self._ensure_process()
         video_dir = self._get_video_dir(video_id)
         if video_id not in self.tracked_data.keys():
-            self.tracked_data[video_id] = np.load(
+            parameters = np.load(
                 os.path.join(video_dir, "optim_tracking.npy"), allow_pickle=True
             ).item()
-            self.tracked_data_id_share[video_id] = np.load(
+            identity = np.load(
                 os.path.join(video_dir, "id_share_params.npy"), allow_pickle=True
             ).item()
             text_dir = os.path.join(video_dir, "prompt.txt")
+            prompt = "视频中的人在做动作"
             if os.path.exists(text_dir):
-                with open(text_dir, "r") as f:
-                    self.videos_promt[video_id] = f.read().strip()
-            else:
-                self.videos_promt[video_id] = "视频中的人在做动作"
+                with open(text_dir) as stream:
+                    prompt = stream.read().strip()
+            if len(self.tracked_data) >= self.cache_size:
+                old_id, _ = self.tracked_data.popitem(last=False)
+                self.tracked_data_id_share.pop(old_id)
+                self.videos_promt.pop(old_id)
+            self.tracked_data[video_id] = parameters
+            self.tracked_data_id_share[video_id] = identity
+            self.videos_promt[video_id] = prompt
+        self.tracked_data.move_to_end(video_id)
 
     def _get_video_dir(self, video_id):
         if "video_dir" in self.videos_info[video_id]:
@@ -412,9 +419,30 @@ class Tracked_VideoDataset(torch.utils.data.Dataset):
         for engine in self.lmdb_engines.values():
             engine.close()
         self.lmdb_engines.clear()
+        self.tracked_data.clear()
+        self.tracked_data_id_share.clear()
+        self.videos_promt.clear()
+        if hasattr(self, "videos_info"):
+            self.videos_info.close()
+
+    def _ensure_process(self):
+        if self._cache_pid != os.getpid():
+            self.close_all_engines()
+            self._cache_pid = os.getpid()
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        state.update(
+            tracked_data=OrderedDict(),
+            tracked_data_id_share={},
+            lmdb_engines=OrderedDict(),
+            videos_promt={},
+            _cache_pid=None,
+        )
+        return state
 
     def __del__(self):
-        if hasattr(self, "lmdb_engines") and self.lmdb_engines:
+        if hasattr(self, "lmdb_engines"):
             self.close_all_engines()
 
 

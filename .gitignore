@@ -17,6 +17,8 @@ __pycache__/
 *.npz
 *.pkl
 *.lmdb
+*.sqlite3
+*.sqlite3-*
 *.mp4
 *.webm
 assets/smplx/

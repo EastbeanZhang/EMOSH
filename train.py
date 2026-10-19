@@ -107,6 +107,7 @@ def parse_args():
     p.add_argument("--save-every", type=int, default=5000)
     p.add_argument("--max-steps", type=int, default=None)
     p.add_argument("--workers", type=int, default=0)
+    p.add_argument("--cache-records", type=int, default=8)
     p.add_argument("--evaluate-every", type=int, default=500)
     p.add_argument("--validation-steps", type=int, default=20)
     p.add_argument("--seed", type=int, default=0)
@@ -125,6 +126,8 @@ def parse_args():
         p.error("--max-steps must be positive")
     if args.evaluate_every < 0 or args.validation_steps <= 0:
         p.error("Evaluation interval must be nonnegative and validation steps positive")
+    if args.workers < 0 or args.cache_records < 1:
+        p.error("Worker count must be nonnegative and cache capacity positive")
     return args
 
 
@@ -182,6 +185,9 @@ def main():
     if accelerator.device.type != "cuda":
         raise RuntimeError("Training requires an NVIDIA CUDA GPU.")
     set_seed(args.seed, device_specific=True)
+    if args.workers:
+        # Tracked clips contain many small tensors; avoid one open descriptor per tensor.
+        torch.multiprocessing.set_sharing_strategy("file_system")
     dataset = Tracked_VideoDataset(
         base_path=args.dataset,
         split="train",
@@ -189,13 +195,10 @@ def main():
         width=args.width,
         num_frames=args.num_frames,
         resolution_area=args.resolution_area,
+        cache_size=args.cache_records,
     )
     minimum_frames = 9 if args.temporal_probability > 0 else 5
-    if any(
-        info["frames_number"] < minimum_frames
-        for key, info in dataset.videos_info.items()
-        if key in dataset.videos_ids
-    ):
+    if dataset.minimum_frames < minimum_frames:
         raise ValueError(
             f"Training records need at least {minimum_frames} frames for this configuration."
         )
@@ -203,8 +206,7 @@ def main():
         dataset, batch_size=1, shuffle=True, num_workers=args.workers, collate_fn=first_sample
     )
     validation_loaders = []
-    splits = json.loads((Path(args.dataset) / "videos_split.json").read_text())
-    if args.evaluate_every and splits.get("valid"):
+    if args.evaluate_every and dataset.videos_info.summary("valid")[0]:
         if args.num_frames < 9:
             raise ValueError(
                 "Chunked validation needs at least nine frames; use --evaluate-every 0 to disable it."
@@ -217,6 +219,7 @@ def main():
                 width=args.width,
                 num_frames=frames,
                 resolution_area=args.resolution_area,
+                cache_size=args.cache_records,
             )
             held_out.slice(
                 min(accelerator.num_processes, len(held_out)),

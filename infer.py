@@ -50,7 +50,7 @@ def main():
         resolution_area=args.resolution_area,
     )
     if args.reference not in dataset.videos_info or args.driving not in dataset.videos_info:
-        p.error("Reference and driving IDs must exist in videos_info.json")
+        p.error("Reference and driving IDs must exist in the dataset index")
     source = dataset._load_source_info(args.reference)
     target = dataset._load_target_info(args.driving)
     target["source_info"] = source["source_info"]

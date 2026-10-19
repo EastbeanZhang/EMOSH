@@ -43,14 +43,14 @@ The training implementation initializes the DiT with public **Wan2.2-Animate-14B
 
 ### Prepare tracked videos
 
-Use [EMOSH-Tracker](https://github.com/EastbeanZhang/EMOSH-Tracker) to fit your videos and save input PNGs. Pack each result into a training record:
+Use [EMOSH-Tracker](https://github.com/EastbeanZhang/EMOSH-Tracker) to fit your videos and save input PNGs. List the results in a JSONL manifest, then pack them in parallel:
 
 ```bash
-python prepare_dataset.py --tracking /path/to/tracker/result \
-  --output data/train --id clip_0001
+python prepare_dataset.py --manifest clips.jsonl \
+  --output data/train --workers 8 --resume
 ```
 
-[Video → tracking → training data](docs/data.md)
+[Manifest format, single clips and existing datasets](docs/data.md)
 
 ### Train
 

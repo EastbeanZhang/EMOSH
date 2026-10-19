@@ -28,7 +28,30 @@ Inspect the preview before using a record. Keep the input PNGs and their matchin
 
 ## 2. Pack training records
 
-Activate the EMOSH environment and run from the EMOSH repository:
+For a collection of clips, create `clips.jsonl` with one record per line:
+
+```jsonl
+{"id":"clip_0001","tracking":"tracking/video_0001"}
+{"id":"clip_0002","tracking":"tracking/video_0002"}
+{"id":"clip_0003","tracking":"tracking/video_0003","split":"valid"}
+```
+
+Tracking paths are absolute or relative to the manifest file. IDs must be unique and contain letters, numbers, underscores or hyphens. Records default to `train`; reserve held-out clips with `"split":"valid"`. The original fixed prompt is supplied automatically.
+
+Activate the EMOSH environment and run from its repository:
+
+```bash
+python prepare_dataset.py --manifest clips.jsonl \
+  --output data/train --workers 8 --resume
+```
+
+The manifest is read incrementally with a bounded number of pending jobs. Workers pack separate clips; completed records are committed to a SQLite index in small transactions. This avoids rewriting a growing JSON index for every clip. Increase `--workers` according to available CPU, memory and storage bandwidth.
+
+`--resume` skips completed records after checking the source file sizes, modification times and packing settings, along with the sizes of the packed files. It recovers interrupted writes and completed records not yet committed to the index. These checks are not content hashes: keep source files unchanged between runs. Changed sources or damaged outputs are reported rather than overwritten.
+
+Failed clips do not discard successful clips. The command exits with status 1 if any fail and writes their IDs, manifest line numbers and errors to `packing-errors-*.jsonl` in the output directory. Fix the failed sources and rerun the same command with `--resume`. Keep the manifest and split assignments stable during retries.
+
+For a single clip, the original command remains available:
 
 ```bash
 python prepare_dataset.py --tracking /path/to/tracker/results/video \
@@ -37,22 +60,39 @@ python prepare_dataset.py --tracking /path/to/another/tracker/result \
   --output data/train --id clip_0002 --split valid
 ```
 
-Use unique record IDs containing letters, numbers, underscores or hyphens. The converter checks frame completeness and consistent RGB dimensions before creating a record. It preserves frame order, stores paths relative to the dataset root and retains the recorded FPS and source frame indices. Only the required arrays, frames and selected metadata are packed; the Tracker's local input path is excluded.
+The converter checks frame completeness and consistent RGB dimensions before creating each record. It preserves frame order, relative record paths, FPS and source frame indices. PNG pixels, tracking arrays and LMDB frame keys retain their original format. Source directory paths are excluded from the packed metadata.
 
 ```text
 data/train/
-├── videos_info.json
-├── videos_split.json
-├── clip_0001/
-│   ├── image_lmdb/
-│   ├── optim_tracking.npy
-│   ├── id_share_params.npy
-│   └── prompt.txt
-└── clip_0002/
+├── dataset.sqlite3
+└── records/
+    ├── <bucket>/
+    │   └── clip_0001/
+    │       ├── image_lmdb/
+    │       ├── optim_tracking.npy
+    │       ├── id_share_params.npy
+    │       ├── prompt.txt
+    │       └── record.json
     └── ...
 ```
 
-`videos_info.json` maps IDs to relative record directories, ordered frame keys, frame counts and dimensions. `videos_split.json` assigns records to `train` or `valid`. A held-out record enables the short- and long-clip validation used during training.
+IDs determine one of 256 directory buckets, keeping large collections out of a single flat directory. `dataset.sqlite3` stores splits and frame metadata; `record.json` supports recovery of each completed clip. Training loads the split's IDs once and reads detailed metadata on demand. LMDB, parameter and metadata caches have fixed capacities per reader. Finish packing before training and keep the dataset unchanged while it is being read. This packing entry point runs on one machine; use a local filesystem that supports file locking for its index and output directories.
+
+### Existing datasets
+
+Datasets with `videos_info.json` and `videos_split.json` still load directly. To create the scalable index without repacking frames or changing existing record directories:
+
+```bash
+python prepare_dataset.py --index-only --output data/train
+```
+
+When both formats exist, training and inference use SQLite. The old JSON files are not updated automatically. Export a fresh snapshot only when another tool requires it, after all packing processes have finished:
+
+```bash
+python prepare_dataset.py --index-only --output data/train --export-json
+```
+
+Legacy records without `record.json` remain readable, but cannot be skipped or overwritten by the packer's `--resume` check. Keep them in place and assign new IDs to additional clips.
 
 ## 3. Train
 

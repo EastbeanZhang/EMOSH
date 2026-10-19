@@ -17,6 +17,8 @@ The public Wan initialization remains frozen except for DiT LoRA projections. Th
 
 Set `--max-steps` to limit optimizer updates for a short run. `--gradient-accumulation N` accumulates gradients before updating the parameters. Non-finite losses or gradients stop training with an error.
 
+For larger datasets, `--workers N` selects the data-loader worker count and `--cache-records N` bounds each reader's open LMDB environments and cached tracking records (default 8). Caches belong to individual processes; increase these values only within the host memory and file-descriptor limits. With the SQLite dataset index, startup reads IDs and frame-count summaries without loading every clip's detailed metadata. Existing JSON datasets remain supported; [index them once](data.md#existing-datasets) to use on-demand metadata reads.
+
 For multiple local GPUs:
 
 ```bash
