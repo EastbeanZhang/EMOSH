@@ -1,0 +1,86 @@
+{
+  "repository": "Wan-AI/Wan2.2-Animate-14B",
+  "revision": "cb93a225fbaf1ca100f54e79da8f994995b689b3",
+  "files": [
+    {
+      "path": "Wan2.1_VAE.pth",
+      "size": 507609928,
+      "sha256": "acf6c5aa49ad281d4b561e10656e2397c446a8ba4b8d8f19d3dd125c2628bc6a"
+    },
+    {
+      "path": "config.json",
+      "size": 565,
+      "git_blob_sha1": "1dac261c9669941c74e9c313545e225863d9bb15"
+    },
+    {
+      "path": "diffusion_pytorch_model-00001-of-00004.safetensors",
+      "size": 9875257880,
+      "sha256": "575c2dba750c3b40240fb742a4224453aa97dfbd3c5f5a0086be431cdefdd69c"
+    },
+    {
+      "path": "diffusion_pytorch_model-00002-of-00004.safetensors",
+      "size": 9975378288,
+      "sha256": "b90b820627d43eeeb1ae0489182f9a8c870374fd72cc99dccb9eddfc2ace8325"
+    },
+    {
+      "path": "diffusion_pytorch_model-00003-of-00004.safetensors",
+      "size": 9954400528,
+      "sha256": "e2aa343b0ba04f563566e9959a439611a18189cd9accdc04d59681be9ce5be50"
+    },
+    {
+      "path": "diffusion_pytorch_model-00004-of-00004.safetensors",
+      "size": 4744748472,
+      "sha256": "e5fea7f38aa4cb70ed59a9ecf406d0c05f3dfc85ee70bc83de35679c42642d1b"
+    },
+    {
+      "path": "diffusion_pytorch_model.safetensors.index.json",
+      "size": 130839,
+      "git_blob_sha1": "a9742c9b1a50dc78a054ef2cc2d33f894156a9ea"
+    },
+    {
+      "path": "google/umt5-xxl/special_tokens_map.json",
+      "size": 6623,
+      "git_blob_sha1": "14855e7052ffbb595057dfd791d293c1c940db2c"
+    },
+    {
+      "path": "google/umt5-xxl/spiece.model",
+      "size": 4548313,
+      "sha256": "e3909a67b780650b35cf529ac782ad2b6b26e6d1f849d3fbb6a872905f452458"
+    },
+    {
+      "path": "google/umt5-xxl/tokenizer.json",
+      "size": 16837417,
+      "sha256": "6e197b4d3dbd71da14b4eb255f4fa91c9c1f2068b20a2de2472967ca3d22602b"
+    },
+    {
+      "path": "google/umt5-xxl/tokenizer_config.json",
+      "size": 61728,
+      "git_blob_sha1": "4e1cc1cd85599ce0b47fd0a746af188fe4043ff2"
+    },
+    {
+      "path": "models_clip_open-clip-xlm-roberta-large-vit-huge-14.pth",
+      "size": 4772359047,
+      "sha256": "628c9998b613391f193eb67ff68da9667d75f492911e4eb3decf23460a158c38"
+    },
+    {
+      "path": "models_t5_umt5-xxl-enc-bf16.pth",
+      "size": 11361920418,
+      "sha256": "7cace0da2b446bbbbc57d031ab6cf163a3d59b366da94e5afe36745b746fd81d"
+    },
+    {
+      "path": "xlm-roberta-large/config.json",
+      "size": 616,
+      "git_blob_sha1": "8e5fb14e1352fd8fc678a7b293b63cfb5cf091f6"
+    },
+    {
+      "path": "xlm-roberta-large/sentencepiece.bpe.model",
+      "size": 5069051,
+      "sha256": "cfc8146abe2a0488e9e2a0c56de7952f7c11ab059eca145a0a727afce0db2865"
+    },
+    {
+      "path": "xlm-roberta-large/tokenizer.json",
+      "size": 9096718,
+      "git_blob_sha1": "463f3414782c1c9405828c9b31bfa36dda1f45c5"
+    }
+  ]
+}

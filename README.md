@@ -10,40 +10,76 @@
 
 ## **ECCV 2026**
 
-[![Project Page](https://img.shields.io/badge/Project-Page-EC4899?style=for-the-badge)](https://eastbeanzhang.github.io/EMOSH/)
-[![arXiv](https://img.shields.io/badge/arXiv-Paper-B31B1B?style=for-the-badge)](https://arxiv.org/abs/2606.28026)
-[![YouTube](https://img.shields.io/badge/YouTube-Demo-FF0000?style=for-the-badge)](https://www.youtube.com/watch?v=Sr9oZLtng-s)
-[![Tracker](https://img.shields.io/badge/Tracker-Code-181717?style=for-the-badge&logo=github)](https://github.com/EastbeanZhang/EMOSH-Tracker)
+[![Project Page](https://img.shields.io/badge/Project_Page-2563EB?style=for-the-badge&logo=googlechrome&logoColor=white)](https://eastbeanzhang.github.io/EMOSH/)
+[![arXiv](https://img.shields.io/badge/Paper-30343B?style=for-the-badge&logo=arxiv&logoColor=white)](https://arxiv.org/abs/2606.28026)
+[![YouTube](https://img.shields.io/badge/Demo-30343B?style=for-the-badge&logo=youtube&logoColor=white)](https://www.youtube.com/watch?v=Sr9oZLtng-s)
+[![Tracker](https://img.shields.io/badge/Tracker-30343B?style=for-the-badge&logo=github&logoColor=white)](https://github.com/EastbeanZhang/EMOSH-Tracker)
 
 </div>
 
----
+**We release the complete training code for EMOSH.**
 
-## Introduction
+EMOSH animates a reference image with expressive motion from a driving video while preserving the reference subject's body shape and identity.
 
-**EMOSH** is a novel framework for high-fidelity controllable human video generation. Given a reference image and a driving video, EMOSH achieves expressive, mesh-guided human animation while explicitly disentangling expressive motion from body shape — preventing shape leakage from the driving subject.
+<p align="center">
+  <img src="assets/Docs/teaser.svg" width="900" alt="EMOSH expressive human animation and motion-shape disentanglement">
+</p>
 
-## Motion Tracker
-
-[EMOSH-Tracker](https://github.com/EastbeanZhang/EMOSH-Tracker) recovers expressive body, hand, face, and camera parameters from full-body, upper-body, and portrait images or videos. See its [README](https://github.com/EastbeanZhang/EMOSH-Tracker#readme) for installation, model downloads, and examples.
-
-The `EMOSH-Tracker/` submodule links to the standalone tracker repository. To check it out after cloning this repository:
-
-```bash
-git submodule update --init EMOSH-Tracker
-```
-
-## Overview
-
-![Teaser](assets/Docs/teaser.svg)
-
-Given a reference image and a driving video, EMOSH achieves high-fidelity, mesh-guided expressive human animation while disentangling expressive motion from body shape to prevent shape leakage.
+- **Expressive motion control.** Track and transfer body motion, facial expressions and hand gestures through EHM.
+- **Motion–shape disentanglement.** Retarget driving motion to the reference identity before rendering hybrid mesh and keypoint controls.
+- **Consistent long videos.** Combine reference, temporal and spatially-aligned conditioning across video chunks.
 
 ## Method
 
-![Pipeline](assets/Docs/pipeline.svg)
+<p align="center">
+  <img src="assets/Docs/pipeline.svg" width="900" alt="EMOSH tracking, retargeting, hybrid control and video generation pipeline">
+</p>
 
-First, the motion tracker extracts motion and camera parameters from the driving video and shape parameters from the reference image, achieving motion-shape disentanglement via EHM retargeting. The retargeted model is then rendered into hybrid control signals through semantic color shading and keypoint drawing, and encoded into motion latents. During generation, the reference latent and noisy latent are concatenated; for subsequent video chunks, the spatially-aligned and temporal latents are additionally activated. The motion latents are injected into the main sequence via addition and fed into the DiT network for denoising, and are finally decoded into the output video.
+The training implementation initializes the DiT with public **Wan2.2-Animate-14B** weights. A lightweight control embedding injects VAE-encoded EHM renderings; LoRA adapts the backbone. See the [paper](https://arxiv.org/abs/2606.28026) for the method and experiments.
+
+## Get started
+
+**Linux · Python 3.10 · NVIDIA CUDA GPU.** Follow the [minimal installation](docs/installation.md), then prepare the [Wan initialization and EHM assets](docs/models.md).
+
+### Prepare tracked videos
+
+Use [EMOSH-Tracker](https://github.com/EastbeanZhang/EMOSH-Tracker) to fit your videos and save input PNGs at the training canvas size. Pack each result into a training record:
+
+```bash
+python prepare_dataset.py --tracking /path/to/tracker/result \
+  --output data/train --id clip_0001 --prompt 'A person moving.'
+```
+
+[Tracking and dataset format](docs/data.md)
+
+### Train
+
+```bash
+python train.py --dataset data/train --model-path models/wan-base \
+  --assets assets --output outputs/train --num-frames 77 \
+  --lora-rank 32 --learning-rate 1e-4 --checkpoint-offload
+```
+
+Use `--max-steps` for a short run and `--resume outputs/train/step-N` to continue from a checkpoint. [Distributed training, outputs and validation](docs/training.md)
+
+### Animate
+
+```bash
+python infer.py --dataset data/train --reference clip_0001 --driving clip_0002 \
+  --model-path models/wan-base --assets assets \
+  --checkpoint outputs/train/step-N/model.safetensors \
+  --output outputs/animation.mp4 --num-frames 77 --steps 20 --fps 30
+```
+
+The reference record supplies identity and shape; the driving record supplies motion and camera. [GPU test scope and measurements](docs/testing.md)
+
+## Motion Tracker
+
+[EMOSH-Tracker](https://github.com/EastbeanZhang/EMOSH-Tracker) is the standalone tracker for full-body, upper-body and portrait images or videos, including flexible input resolutions. Its repository provides installation, model links and runnable examples. The [EMOSH-Tracker/](EMOSH-Tracker) submodule opens the corresponding source.
+
+## Acknowledgements
+
+Built on [Wan](https://github.com/Wan-Video/Wan2.2), [DiffSynth-Studio](https://github.com/modelscope/DiffSynth-Studio), [EHM-Tracker](https://github.com/Pixel-Talk/EHM-Tracker), SMPL-X, FLAME and MANO. Project-authored integration is under [Apache-2.0](LICENSE); embedded components retain their [original terms](THIRD_PARTY_NOTICES.md).
 
 ## Citation
 
