@@ -66,11 +66,3 @@ python infer.py --dataset data/train --reference clip_0001 --driving clip_0002 \
 The reference record provides the image and identity/shape parameters; the driving record provides pose, expression and camera parameters. The code retargets the driving motion to the reference identity before rendering the control maps.
 
 Long videos use overlapping chunks with five temporal reference frames. As in the original inference entry point, additional spatial anchoring is disabled by default; `--spatial-anchor` enables it. The default sampler is `flowmatch`; `--sample-solver unipc` and `--sample-solver dpm++` select the other original samplers. Export preserves frame coverage and uses the driving record's FPS, falling back to the Wan configuration's 30 FPS; `--fps` overrides it.
-
-For a small CUDA graph check that requires no model downloads:
-
-```bash
-python -m scripts.smoke_test --output outputs/smoke
-```
-
-This check uses a reduced-width backbone and verifies backward propagation, optimizer updates and checkpoint restoration. It does not measure the quality or memory requirements of the full model. Full-model validation is documented separately in [testing.md](testing.md).

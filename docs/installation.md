@@ -32,7 +32,4 @@ For development checks:
 ```bash
 python -m pip install -r requirements-dev.txt
 ruff check .
-python -m pytest -q
 ```
-
-GPU checks and their scope are recorded in [testing.md](testing.md).

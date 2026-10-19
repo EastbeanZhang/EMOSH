@@ -1,8 +1,3 @@
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-pythonpath = ["."]
-markers = ["gpu: requires a CUDA GPU"]
-
 [tool.ruff]
 line-length = 100
 target-version = "py310"
