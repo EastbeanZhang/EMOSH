@@ -43,14 +43,14 @@ The training implementation initializes the DiT with public **Wan2.2-Animate-14B
 
 ### Prepare tracked videos
 
-Use [EMOSH-Tracker](https://github.com/EastbeanZhang/EMOSH-Tracker) to fit your videos and save input PNGs at the training canvas size. Pack each result into a training record:
+Use [EMOSH-Tracker](https://github.com/EastbeanZhang/EMOSH-Tracker) to fit your videos and save input PNGs. Pack each result into a training record:
 
 ```bash
 python prepare_dataset.py --tracking /path/to/tracker/result \
   --output data/train --id clip_0001
 ```
 
-[Tracking and dataset format](docs/data.md)
+[Video → tracking → training data](docs/data.md)
 
 ### Train
 
@@ -68,10 +68,10 @@ Use `--max-steps` for a short run and `--resume outputs/train/step-N` to continu
 python infer.py --dataset data/train --reference clip_0001 --driving clip_0002 \
   --model-path models/wan-base --assets assets \
   --checkpoint outputs/train/step-N/model.safetensors \
-  --output outputs/animation.mp4 --num-frames 77 --steps 20 --fps 30
+  --output outputs/animation.mp4 --num-frames 77 --steps 20
 ```
 
-The reference record supplies identity and shape; the driving record supplies motion and camera.
+The reference record supplies identity and shape; the driving record supplies motion and camera. Original dimensions, Wan-Animate area budgets and custom canvases are supported.
 
 ## Motion Tracker
 

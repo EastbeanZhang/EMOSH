@@ -1,28 +1,32 @@
 # Runtime validation
 
-The release is tested in a fresh Linux environment with Python 3.10.18, PyTorch 2.9.1 / CUDA 13.0, torchvision 0.24.1, PyTorch3D 0.7.9 and the pinned runtime requirements. `pip check` passes. The attention path uses native PyTorch SDPA.
+Checked in a fresh Linux environment with Python 3.10.18, PyTorch 2.9.1 / CUDA 13.0, torchvision 0.24.1, PyTorch3D 0.7.9 and the pinned requirements. `pip check` and Ruff pass. The attention path uses native PyTorch SDPA.
 
-## Checks
+## Coverage
 
-- Eight tests pass on CUDA, covering attention masks and gradients, paired reference/control augmentation, dataset conversion, identity retargeting and optimizer checkpoint restoration. Ruff passes.
-- The reduced-width smoke test completes two optimizer updates and restores its checkpoint.
-- Real Tracker parameters produce finite 512 × 512 hybrid mesh/keypoint control frames.
-- The complete Wan2.2-Animate-14B model completes two updates on a nine-frame full-body clip. Both the mesh-control embedding and LoRA parameters change. A saved checkpoint restores the optimizer and loop position and continues through step 3.
-- A 77-frame portrait clip completes a full-model update with finite loss and gradients, five-frame temporal conditioning and CPU activation offload. Both control and LoRA parameters update.
-- The inference CLI loads the resulting checkpoint and exports a 13-frame, 512 × 512 video at 30 FPS, using two overlapping nine-frame chunks, two denoising steps per chunk and spatially-aligned conditioning.
-- Two-GPU DDP completes one update with nine frames per GPU. Both ranks update the control and LoRA parameters, and their updated control weights have identical content hashes.
+- **41 regression checks pass**, covering dataset packing and loading, camera/crop transforms, odd dimensions, reference/driving canvas alignment, attention gradients, identity retargeting, temporal chunk boundaries and checkpoint restoration. The data-loading and chunk checks also pass with CUDA disabled.
+- **50 full-model optimizer updates** complete on real full-body and portrait tracking records at 640 × 384, with nine frames per clip. Losses, gradients, parameters and saved optimizer states remain finite. Both temporal modes are exercised. Step 25 restores model weights, optimizer state and the original `ConstantLR` scheduler exactly, then continues to step 50.
+- Held-out validation runs at steps 25 and 50, including nine-frame and thirteen-frame clips, pixel MSE and generated/control/target previews.
+- A **77-frame native 1920 × 1080 portrait clip** completes a full-model update on a padded 1920 × 1088 canvas, with five-frame temporal conditioning and activation offload.
+- **1280 × 720 and 720 × 1280** clips complete full-model updates and thirteen-frame exports. The original UniPC and DPM++ samplers are exercised alongside FlowMatch.
+- A **459 × 639** video passes the default native-resolution Tracker CLI, dataset conversion, training on a 464 × 640 model canvas and exact 459 × 639 export at 30 FPS.
+- Two-GPU DDP completes an optimizer update and held-out validation. Both ranks produce identical updated control-weight hashes.
+- Inference exports one-frame, thirteen-frame and seventeen-frame videos. The seventeen-frame case spans three overlapping nine-frame chunks; native cross-resolution inputs retain the reference dimensions and the driving FPS. Spatial anchoring is checked both enabled and disabled.
+- Rectangular control rendering agrees with an unbinned rasterization reference to within `3.1e-5` in pixel intensity. Rasterization capacity is sized to the mesh rather than dropping faces in crowded bins.
 
-The full-model checks use BF16, LoRA rank 32, a batch size of one and gradient checkpointing. The nine-frame runs disable temporal conditioning; the longer run exercises five-frame temporal conditioning and CPU activation offload.
+## Allocator peaks
 
-## GPU memory
+All runs use the complete Wan2.2-Animate-14B model, BF16, LoRA rank 32, batch size one per GPU, gradient checkpointing and CPU activation offload. The 50-update row includes held-out validation. The 720P and 77-frame checks use five-frame temporal conditioning; the odd-sized nine-frame check disables it.
 
-| Run | Canvas | Frames per clip | Optimizer updates | Peak allocated | Peak reserved |
+| Run | Training canvas | Frames per clip | Optimizer updates | Peak allocated | Peak reserved |
 | --- | --- | --- | --- | --- | --- |
-| Full-body training | 512 × 512 | 9 | 2 | 54.60 GiB | 60.58 GiB |
-| Restore and continue | 512 × 512 | 9 | 1 additional | 54.59 GiB | 60.58 GiB |
-| Portrait training, activation offload | 512 × 512 | 77 | 1 | 55.50 GiB | 60.90 GiB |
-| Two-GPU DDP, per GPU | 512 × 512 | 9 | 1 | 54.30 GiB | 60.97 GiB |
+| Full-body and portrait | 640 × 384 | 9 | 50, including resume | 55.00 GiB | 59.72 GiB |
+| Landscape | 1280 × 720 | 9 | 1 | 74.87 GiB | 94.61 GiB |
+| Portrait | 720 × 1280 | 9 | 1 | 74.87 GiB | 94.61 GiB |
+| Native odd-sized video | 464 × 640 | 9 | 1 | 55.12 GiB | 62.37 GiB |
+| Native portrait, standard clip | 1920 × 1088 | 77 | 1 | 174.46 GiB | 212.29 GiB |
+| Two-GPU DDP, per GPU | 640 × 384 | 9 | 1 | 55.29 GiB | 60.18 GiB |
 
-These are PyTorch allocator peaks for the stated configurations. They exclude CUDA context memory and other processes; allow additional headroom. Shorter clips are useful for checking an installation, while the standard training recipe uses 77 frames.
+These are measured PyTorch allocator peaks for the stated configurations, rather than minimum GPU capacities. CUDA context memory and other processes are excluded. Use an area budget or a smaller canvas and clip length to control memory.
 
-Short training and low-step generation checks establish that the code runs; they do not establish convergence or reproduce the paper's generation quality.
+The checks establish execution and numerical stability. They do not establish convergence or reproduce the paper's animation quality.

@@ -5,7 +5,7 @@ import torch
 from safetensors.torch import load_file, save_file
 
 
-def save_checkpoint(directory, model, optimizer, step, epoch, batch):
+def save_checkpoint(directory, model, optimizer, step, epoch, batch, scheduler=None):
     directory = Path(directory)
     directory.mkdir(parents=True, exist_ok=True)
     names = {name for name, p in model.named_parameters() if p.requires_grad}
@@ -15,14 +15,14 @@ def save_checkpoint(directory, model, optimizer, step, epoch, batch):
         if name in names
     }
     save_file(state, str(directory / "model.safetensors"))
-    torch.save(
-        {"optimizer": optimizer.state_dict(), "step": step, "epoch": epoch, "batch": batch},
-        directory / "training.pt",
-    )
+    progress = {"optimizer": optimizer.state_dict(), "step": step, "epoch": epoch, "batch": batch}
+    if scheduler is not None:
+        progress["scheduler"] = scheduler.state_dict()
+    torch.save(progress, directory / "training.pt")
     (directory / "progress.json").write_text(json.dumps({"step": step}, indent=2) + "\n")
 
 
-def load_checkpoint(directory, model, optimizer=None):
+def load_checkpoint(directory, model, optimizer=None, scheduler=None):
     directory = Path(directory)
     weights = load_file(str(directory / "model.safetensors"), device="cpu")
     expected = {name for name, p in model.named_parameters() if p.requires_grad}
@@ -33,6 +33,10 @@ def load_checkpoint(directory, model, optimizer=None):
     state = torch.load(directory / "training.pt", map_location="cpu", weights_only=True)
     if optimizer is not None:
         optimizer.load_state_dict(state["optimizer"])
+    if scheduler is not None:
+        if "scheduler" not in state:
+            raise ValueError("This checkpoint has no learning-rate scheduler state.")
+        scheduler.load_state_dict(state["scheduler"])
     return state
 
 

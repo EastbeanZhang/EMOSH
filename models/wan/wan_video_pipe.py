@@ -26,6 +26,7 @@ from ..utils.general_utils import (
     to_device_recursive,
     to_float32_recursive,
 )
+from ..utils.video_chunks import padded_length, temporal_reference
 from .distributed.util import gather_forward, get_rank, get_world_size
 from .lora import GeneralLoRALoader
 from .modules.animate_adapter import Extra_Animate_Adapter
@@ -188,14 +189,7 @@ class WanVideoPipeline(BasePipeline):
         return pipe
 
     def get_valid_len(self, real_len, clip_len=81, overlap=1):
-        real_clip_len = clip_len - overlap
-        last_clip_num = (real_len - overlap) % real_clip_len
-        if last_clip_num == 0:
-            extra = 0
-        else:
-            extra = real_clip_len - last_clip_num
-        target_len = real_len + extra
-        return target_len
+        return padded_length(real_len, clip_len, overlap)
 
     def get_i2v_mask(self, lat_t, lat_h, lat_w, mask_len=1, mask_pixel_values=None, device="cuda"):
         if mask_pixel_values is None:
@@ -461,6 +455,10 @@ class WanVideoPipeline(BasePipeline):
                 .to(self.device)
                 .repeat(batch_size, 1)
             )
+            if "K_intrinsic" in info["smplx_params"]:
+                intrinsic = info["smplx_params"]["K_intrinsic"]
+                focal_length_batch = torch.stack((intrinsic[:, 0, 0], intrinsic[:, 1, 1]), dim=-1)
+                princpt_batch = intrinsic[:, :2, 2]
             render_cam_param = {
                 "w2c_RT": info["smplx_params"]["w2c_RT"],
                 "image_size": (image_width, image_height),
@@ -653,7 +651,7 @@ class WanVideoPipeline(BasePipeline):
             if start + refer_t_num >= target_len:
                 break
             if start > 0:
-                refer_temporal_image = all_out_frames[-1][0, :, -refer_t_num:].clone().detach()
+                refer_temporal_image = temporal_reference(all_out_frames, refer_t_num)
             sample_scheduler, timesteps = self.get_scheduler(
                 sample_solver, shift=5.0, sampling_steps=num_inference_steps
             )

@@ -110,7 +110,11 @@ class Mesh_Render:
             .repeat(batch_size, 1),
         )
         raster_settings = RasterizationSettings(
-            image_size=render_shape, blur_radius=0.0, faces_per_pixel=1, perspective_correct=True
+            image_size=render_shape,
+            blur_radius=0.0,
+            faces_per_pixel=1,
+            perspective_correct=True,
+            max_faces_per_bin=face.shape[1],
         )
         rasterizer = MeshRasterizer(cameras=cameras, raster_settings=raster_settings).to(
             mesh.device
@@ -160,6 +164,9 @@ def draw_landmarks(landmarks, image, color=(255, 0, 0), radius=1, thickness=-1, 
 def perspective_projection(w2c_RT, cam_params, points, image_height, image_width):
     points_cam = torch.cat([points, torch.ones_like(points[..., :1])], dim=-1)
     points_cam = torch.einsum("bij,bnj->bni", w2c_RT, points_cam)
+    if "K_intrinsic" in cam_params:
+        projected = torch.einsum("bij,bnj->bni", cam_params["K_intrinsic"], points_cam[..., :3])
+        return projected[..., :2] / (projected[..., 2:3] + 1e-7), points_cam
     focalxy = torch.cat(
         [cam_params["focal_px"][..., None, 0:1], cam_params["focal_py"][..., None, 0:1]], dim=-1
     )

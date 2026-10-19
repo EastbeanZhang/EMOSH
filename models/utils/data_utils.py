@@ -15,6 +15,7 @@ from .general_utils import (
     to_tensor_recursive,
 )
 from .graphics_utils import get_full_proj_matrix
+from .image_geometry import canvas_size, fit_canvas
 from .lmdb import LMDBEngine
 
 
@@ -36,6 +37,7 @@ class Tracked_VideoDataset(torch.utils.data.Dataset):
         video_file_extension=("mp4", "avi", "mov", "wmv", "mkv", "flv", "webm"),
         repeat=1,
         args=None,
+        resolution_area=None,
     ):
         if args is not None:
             base_path = args.dataset_base_path
@@ -58,6 +60,11 @@ class Tracked_VideoDataset(torch.utils.data.Dataset):
         self.max_pixels = max_pixels
         self.height = height
         self.width = width
+        if (width is None) != (height is None):
+            raise ValueError("Provide both width and height, or omit both.")
+        self.fixed_size = None if width is None else (width, height)
+        self.resolution_area = resolution_area
+        canvas_size(512, 512, self.fixed_size, resolution_area)
         self.height_division_factor = height_division_factor
         self.width_division_factor = width_division_factor
 
@@ -65,12 +72,7 @@ class Tracked_VideoDataset(torch.utils.data.Dataset):
         self.video_file_extension = video_file_extension
         self.repeat = repeat
 
-        if height is not None and width is not None:
-            print("Height and width are fixed. Setting `dynamic_resolution` to False.")
-            self.dynamic_resolution = False
-        elif height is None and width is None:
-            print("Height and width are none. Setting `dynamic_resolution` to True.")
-            self.dynamic_resolution = True
+        self.dynamic_resolution = self.fixed_size is None
 
         try:
             with open(os.path.join(self.base_path, "videos_info.json"), "r") as f:
@@ -143,7 +145,17 @@ class Tracked_VideoDataset(torch.utils.data.Dataset):
 
         return source_key
 
+    def _select_canvas(self, video_id):
+        record = self.videos_info[video_id]
+        width, height = record.get("width"), record.get("height")
+        if width is None or height is None:
+            image = self._get_lmdb_engine(video_id)[f"{record['frames_keys'][0]}/full_crop_image"]
+            height, width = image.shape[-2:]
+        self.width, self.height = canvas_size(width, height, self.fixed_size, self.resolution_area)
+        self._input_size = (width, height)
+
     def _load_one_record(self, video_id):
+        self._select_canvas(video_id)
         one_record = {}
         frame_keys = self.videos_info[video_id]["frames_keys"]
         source_key = self._choose_image(video_id, frame_keys)
@@ -184,7 +196,10 @@ class Tracked_VideoDataset(torch.utils.data.Dataset):
                 [self.width / (focal_px * 2), self.height / (focal_py * 2)], dtype=torch.float32
             )
             view_matrix, full_proj_matrix = get_full_proj_matrix(
-                traget_tracking_info["w2c_cam"], tanHalfFov
+                traget_tracking_info["w2c_cam"],
+                tanHalfFov,
+                intrinsics=traget_tracking_info["smplx_params"].get("K_intrinsic"),
+                image_size=(self.width, self.height),
             )
             traget_tracking_info["render_cam_params"] = {
                 "world_view_transform": view_matrix,
@@ -211,17 +226,21 @@ class Tracked_VideoDataset(torch.utils.data.Dataset):
 
     def _load_one_info(self, _lmdb_engine, video_id, frame_key, load_box=False):
         _image = _lmdb_engine[f"{frame_key}/full_crop_image"].float() / 255.0
-        if _image.shape[-2:] != (self.height, self.width):
-            raise ValueError(
-                "Tracked canvas differs from training size. Track inputs at the requested training dimensions."
-            )
-        _mask = torch.ones_like(_image)
-
         tracking_info = deepcopy(self.tracked_data[video_id][frame_key])
         tracking_info["id_params"] = deepcopy(self.tracked_data_id_share[video_id])
 
         tracking_info = to_tensor_recursive(tracking_info, device="cpu")
         tracking_info = squeeze_tensor_recursive(tracking_info, dim=0)
+        reference_size = getattr(self, "_reference_size", None)
+        _image, _mask = fit_canvas(
+            _image,
+            tracking_info,
+            (self.width, self.height),
+            pad_only=self.fixed_size is None
+            and self.resolution_area is None
+            and (reference_size is None or reference_size == (_image.shape[-1], _image.shape[-2])),
+            content_size=reference_size,
+        )
 
         RT = tracking_info["smplx_params"]["w2c_RT"]
         c2c_mat = torch.tensor(
@@ -401,6 +420,10 @@ class Tracked_VideoDataset(torch.utils.data.Dataset):
 
 class Tracked_VideoDataset_infer(Tracked_VideoDataset):
     def _load_source_info(self, video_id, load_box=True):
+        self._select_canvas(video_id)
+        self._reference_size = (
+            self._input_size if self.fixed_size is None and self.resolution_area is None else None
+        )
         self._load_tracked_file(video_id)
         _lmdb_engine = self._get_lmdb_engine(video_id)
         frame_keys = self.videos_info[video_id]["frames_keys"]
@@ -425,6 +448,8 @@ class Tracked_VideoDataset_infer(Tracked_VideoDataset):
         return info_dict
 
     def _load_target_info(self, video_id):
+        if self.width is None or self.height is None:
+            self._select_canvas(video_id)
         self._load_tracked_file(video_id)
         _lmdb_engine = self._get_lmdb_engine(video_id)
         frame_keys = self.videos_info[video_id]["frames_keys"]
@@ -444,7 +469,10 @@ class Tracked_VideoDataset_infer(Tracked_VideoDataset):
                 [self.width / (focal_px * 2), self.height / (focal_py * 2)], dtype=torch.float32
             )
             view_matrix, full_proj_matrix = get_full_proj_matrix(
-                traget_tracking_info["w2c_cam"], tanHalfFov
+                traget_tracking_info["w2c_cam"],
+                tanHalfFov,
+                intrinsics=traget_tracking_info["smplx_params"].get("K_intrinsic"),
+                image_size=(self.width, self.height),
             )
             traget_tracking_info["render_cam_params"] = {
                 "world_view_transform": view_matrix,

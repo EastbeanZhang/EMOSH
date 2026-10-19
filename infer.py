@@ -1,9 +1,11 @@
 import argparse
 
+import numpy as np
 import torch
 
 from models.utils.data_utils import Tracked_VideoDataset_infer
 from models.utils.general_utils import save_video
+from models.utils.image_geometry import add_resolution_arguments, validate_resolution_arguments
 from models.utils.retarget import retarget_identity
 from models.wan.configs import WAN_CONFIGS
 from models.wan.wan_video_pipe import WanVideoPipeline
@@ -22,14 +24,21 @@ def main():
     )
     p.add_argument("--assets", default="assets")
     p.add_argument("--output", default="outputs/animation.mp4")
-    p.add_argument("--height", type=int, default=512)
-    p.add_argument("--width", type=int, default=512)
+    add_resolution_arguments(p)
     p.add_argument("--num-frames", type=int, default=77)
     p.add_argument("--steps", type=int, default=20)
-    p.add_argument("--fps", type=float, default=30)
+    p.add_argument("--fps", type=float, default=None)
     p.add_argument("--seed", type=int, default=0)
-    p.add_argument("--disable-spatial-anchor", action="store_true")
+    anchor = p.add_mutually_exclusive_group()
+    anchor.add_argument("--spatial-anchor", action="store_true", default=False)
+    anchor.add_argument("--disable-spatial-anchor", dest="spatial_anchor", action="store_false")
+    p.add_argument("--sample-solver", choices=["flowmatch", "unipc", "dpm++"], default="flowmatch")
     args = p.parse_args()
+    validate_resolution_arguments(p, args)
+    if args.num_frames < 9 or args.num_frames % 4 != 1:
+        p.error("--num-frames must be 4n+1 and at least 9 for five-frame overlap")
+    if args.steps <= 0 or (args.fps is not None and args.fps <= 0):
+        p.error("--steps and --fps must be positive")
     if not torch.cuda.is_available():
         raise RuntimeError("Generation requires an NVIDIA CUDA GPU.")
     dataset = Tracked_VideoDataset_infer(
@@ -38,6 +47,7 @@ def main():
         height=args.height,
         width=args.width,
         num_frames=args.num_frames,
+        resolution_area=args.resolution_area,
     )
     if args.reference not in dataset.videos_info or args.driving not in dataset.videos_info:
         p.error("Reference and driving IDs must exist in videos_info.json")
@@ -67,12 +77,25 @@ def main():
         clip_len=args.num_frames,
         seed=args.seed,
         num_inference_steps=args.steps,
-        add_refer=not args.disable_spatial_anchor,
+        add_refer=args.spatial_anchor,
+        sample_solver=args.sample_solver,
     )
+    if args.width is None and args.resolution_area is None:
+        record = dataset.videos_info[args.reference]
+        width, height = record.get("width", dataset.width), record.get("height", dataset.height)
+        left, top = (dataset.width - width) // 2, (dataset.height - height) // 2
+        frames = [np.asarray(frame)[top : top + height, left : left + width] for frame in frames]
     from pathlib import Path
 
     Path(args.output).parent.mkdir(parents=True, exist_ok=True)
-    save_video(frames, args.output, fps=args.fps, quality=8)
+    fps = (
+        args.fps
+        or dataset.videos_info[args.driving].get("fps")
+        or WAN_CONFIGS["animate-14B"].sample_fps
+    )
+    height, width = np.asarray(frames[0]).shape[:2]
+    pixel_format = "yuv444p" if width % 2 or height % 2 else "yuv420p"
+    save_video(frames, args.output, fps=fps, quality=8, pixelformat=pixel_format)
     print(f"Saved {len(frames)} frames.")
 
 

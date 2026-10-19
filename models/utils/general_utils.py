@@ -8,8 +8,15 @@ from torchvision.transforms.functional import InterpolationMode, resize
 from tqdm import tqdm
 
 
-def save_video(frames, save_path, fps, quality=9, ffmpeg_params=None):
-    writer = imageio.get_writer(save_path, fps=fps, quality=quality, ffmpeg_params=ffmpeg_params)
+def save_video(frames, save_path, fps, quality=9, ffmpeg_params=None, pixelformat="yuv420p"):
+    writer = imageio.get_writer(
+        save_path,
+        fps=fps,
+        quality=quality,
+        ffmpeg_params=ffmpeg_params,
+        macro_block_size=1,
+        pixelformat=pixelformat,
+    )
     for frame in tqdm(frames, desc="Saving video"):
         frame = np.array(frame)
         writer.append_data(frame)
@@ -141,6 +148,10 @@ def apply_disturbance(refert_latent, refer_t_num=5, noise_pro=0.5):
 
 
 def inputs_padding(array, target_len):
+    if len(array) == 0 and target_len > 0:
+        raise ValueError("Cannot pad an empty sequence.")
+    if len(array) == 1:
+        return [deepcopy(array[0]) for _ in range(target_len)]
     idx = 0
     flip = False
     target_array = []

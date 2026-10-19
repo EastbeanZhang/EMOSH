@@ -70,14 +70,15 @@ def get_proj_matrix(
     return proj_matrix
 
 
-def get_full_proj_matrix(w2c_cam, tanfov):
+def get_full_proj_matrix(w2c_cam, tanfov, intrinsics=None, image_size=None):
     assert len(w2c_cam.shape) == 2
     view_matrix = get_view_matrix(w2c_cam[:3, :3], w2c_cam[:3, 3]).transpose(0, 1).contiguous()
-    proj_matrix = (
-        get_proj_matrix(tanfov, device=w2c_cam.device, z_near=0.01, z_far=100, z_sign=1.0)
-        .transpose(0, 1)
-        .contiguous()
-    )
+    proj_matrix = get_proj_matrix(tanfov, device=w2c_cam.device)
+    if intrinsics is not None:
+        width, height = image_size
+        proj_matrix[0, 2] = 2 * intrinsics[0, 2] / width - 1
+        proj_matrix[1, 2] = 2 * intrinsics[1, 2] / height - 1
+    proj_matrix = proj_matrix.transpose(0, 1).contiguous()
     full_proj_matrix = (view_matrix.unsqueeze(0).bmm(proj_matrix.unsqueeze(0))).squeeze(0)
 
     return view_matrix, full_proj_matrix
